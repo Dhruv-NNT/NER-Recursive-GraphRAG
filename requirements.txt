@@ -1,0 +1,27 @@
+# --- Core Upgrades for Numpy 2 compatibility ---
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-core>=0.3.0
+langgraph  # Let pip find the version compatible with neo4j-graphrag
+
+# --- Neo4j ---
+neo4j==5.28.2
+# neo4j-graphrag is the target package, add it here
+neo4j-graphrag
+
+# --- Data & Math ---
+pandas==2.2.3
+numpy==2.2.6
+scikit-learn==1.5.1
+
+# --- AI / ML ---
+sentence-transformers==3.0.1
+transformers==4.57.3
+torch==2.9.1
+pytest==8.2.2
+
+# --- Llama Index ---
+llama-index
+llama-index-graph-stores-neo4j
+llama-index-llms-ollama
+llama-index-embeddings-huggingface
