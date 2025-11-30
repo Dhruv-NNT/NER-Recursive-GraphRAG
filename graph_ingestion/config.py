@@ -17,7 +17,7 @@ class Neo4jConfig:
 
     uri: str = "bolt://localhost:7687"
     user: str = "neo4j"
-    password: str = "letmein"
+    password: str = "Helloworld@123"
     database: str | None = None
 
     @classmethod

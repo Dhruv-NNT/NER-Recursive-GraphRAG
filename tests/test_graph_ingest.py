@@ -45,12 +45,15 @@ def build_example() -> TranscriptExample:
     # Keep the example tiny so assertions are easy to read.
     return TranscriptExample(
         transcript_id="demo-graph",
-        full_text="hold short runway",
+        tokens=["hold", "short", "wait", "runway"],
+        tags=["B-ACTION", "I-ACTION", "O", "B-TAXIWAY"],
+        full_text="hold short wait runway",
         speaker="controller",
         intent="taxi",
         entities=[
-            EntitySpan(text="hold short", label="ACTION"),
-            EntitySpan(text="runway", label="TAXIWAY"),
+            EntitySpan(text="HOLD SHORT", label="ACTION"),
+            EntitySpan(text="Wait", label="O"),
+            EntitySpan(text="Runway", label="TAXIWAY"),
         ],
     )
 
@@ -64,6 +67,14 @@ def test_upsert_transcript_emits_expected_queries():
     upsert_query, params = tx.queries[0]
     assert "MERGE (t:Transcript" in upsert_query
     assert params["uid"] == "demo-graph"
+    assert params["tokens"] == ["hold", "short", "wait", "runway"]
+    assert params["bio_tags"] == ["B-ACTION", "I-ACTION", "O", "B-TAXIWAY"]
+
+    entities_query, entities_params = tx.queries[2]
+    assert "UNWIND $entities AS entity" in entities_query
+    lowered = [entity["text"] for entity in entities_params["entities"]]
+    assert lowered == ["hold short", "wait", "runway"]
+    assert entities_params["entities"][0]["surface_text"] == "HOLD SHORT"
 
 
 def test_ingest_examples_invokes_write_per_example():

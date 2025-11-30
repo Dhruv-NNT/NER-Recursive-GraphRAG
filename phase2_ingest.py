@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--strict", action="store_true", help="Strict CSV parsing")
     parser.add_argument("--neo4j-uri", type=str, default="bolt://localhost:7687")
     parser.add_argument("--neo4j-user", type=str, default="neo4j")
-    parser.add_argument("--neo4j-password", type=str, default="letmein")
+    parser.add_argument("--neo4j-password", type=str, default="Helloworld@123")
     parser.add_argument("--neo4j-database", type=str, default=None)
     return parser.parse_args()
 

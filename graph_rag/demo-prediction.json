@@ -1,0 +1,23 @@
+{
+    "full_text": "brussels seven zero tree eight two taxi via hotel three turn right hotel , yankee nine two , holdnig point quebec five five",
+    "speaker": "CONTROLLER",
+    "intent": "TAXI",
+    "entities": [
+        {
+            "text": "brussels seven zero tree eight two",
+            "label": "CALLSIGN"
+        },
+        {
+            "text": "taxi",
+            "label": "ACTION"
+        },
+        {
+            "text": "hotel three",
+            "label": "TAXIWAY"
+        },
+        {
+            "text": "quebec five five",
+            "label": "CALLSIGN"
+        }
+    ]
+}

@@ -36,19 +36,37 @@ class GraphIngestor:
         self.ingest_examples(examples)
 
     @staticmethod
+    def _prepare_entities(entities: Iterable[dict]) -> list[dict]:
+        normalized: list[dict] = []
+        for entity in entities:
+            text = (entity.get("text") or "").lower()
+            normalized.append(
+                {
+                    "text": text,
+                    "label": entity.get("label", ""),
+                    "surface_text": entity.get("text", ""),
+                }
+            )
+        return normalized
+
+    @staticmethod
     def _upsert_transcript(tx, payload: dict) -> None:
         uid = payload["transcript_id"]
         # UNWIND lets Neo4j handle each entity span in a single query call.
         tx.run(
             """
             MERGE (t:Transcript {uid: $uid})
-            ON CREATE SET t.text = $text, t.speaker = $speaker, t.intent = $intent
-            ON MATCH SET t.text = $text, t.speaker = $speaker, t.intent = $intent
+            ON CREATE SET t.text = $text, t.speaker = $speaker, t.intent = $intent,
+                          t.tokens = $tokens, t.bio_tags = $bio_tags
+            ON MATCH SET t.text = $text, t.speaker = $speaker, t.intent = $intent,
+                         t.tokens = $tokens, t.bio_tags = $bio_tags
             """,
             uid=uid,
             text=payload.get("full_text", ""),
             speaker=payload.get("speaker", ""),
             intent=payload.get("intent", ""),
+            tokens=payload.get("tokens", []),
+            bio_tags=payload.get("tags", []),
         )
 
         tx.run(
@@ -72,10 +90,11 @@ class GraphIngestor:
             UNWIND $entities AS entity
             MERGE (c:Category {name: entity.label})
             MERGE (e:Entity {text: entity.text, category: entity.label})
-            ON CREATE SET e.normalizedText = toLower(entity.text)
+            ON CREATE SET e.normalizedText = entity.text,
+                          e.surfaceText = entity.surface_text
             MERGE (t)-[:CONTAINS]->(e)
             MERGE (e)-[:IS_A]->(c)
             """,
             uid=uid,
-            entities=entities,
+            entities=GraphIngestor._prepare_entities(entities),
         )

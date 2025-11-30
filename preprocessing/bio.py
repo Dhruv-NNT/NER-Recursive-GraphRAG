@@ -42,6 +42,8 @@ class TranscriptExample:
     """Final JSON-ready representation of a transcript."""
 
     transcript_id: str
+    tokens: List[str]
+    tags: List[str]
     full_text: str
     speaker: str
     intent: str
@@ -50,6 +52,8 @@ class TranscriptExample:
     def to_json(self) -> dict:
         return {
             "transcript_id": self.transcript_id,
+            "tokens": self.tokens,
+            "tags": self.tags,
             "full_text": self.full_text,
             "speaker": self.speaker,
             "intent": self.intent,
@@ -63,6 +67,8 @@ class TranscriptExample:
         ]
         return TranscriptExample(
             transcript_id=str(payload.get("transcript_id", "")),
+            tokens=list(payload.get("tokens", [])),
+            tags=list(payload.get("tags", [])),
             full_text=payload.get("full_text", ""),
             speaker=payload.get("speaker", ""),
             intent=payload.get("intent", ""),
@@ -77,14 +83,25 @@ class BIOConverter:
     def merge(tokens: Iterable[str], tags: Iterable[str]) -> List[EntitySpan]:
         tokens_list = list(tokens)
         tags_list = list(tags)
-        spans: List[EntitySpan] = []
+        entity_spans = BIOConverter._merge_entity_spans(tokens_list, tags_list)
+        o_spans = BIOConverter._merge_o_spans(tokens_list, tags_list)
 
+        all_spans = sorted(
+            entity_spans + o_spans,
+            key=lambda span: span.start if span.start is not None else -1,
+        )
+
+        BIOConverter.validate_coverage(tokens_list, tags_list, all_spans)
+        return all_spans
+
+    @staticmethod
+    def _merge_entity_spans(tokens: List[str], tags: List[str]) -> List[EntitySpan]:
+        spans: List[EntitySpan] = []
         current_tokens: List[str] = []
         current_label: str | None = None
         start_idx: int | None = None
 
-        for idx, (token, tag) in enumerate(zip(tokens_list, tags_list)):
-            # Whenever the tag is "O" we flush any ongoing entity and move on.
+        for idx, (token, tag) in enumerate(zip(tokens, tags)):
             if not tag or tag == "O":
                 if current_tokens:
                     spans.append(
@@ -130,11 +147,24 @@ class BIOConverter:
                     text=" ".join(current_tokens),
                     label=current_label or "",
                     start=start_idx or 0,
-                    end=len(tokens_list),
+                    end=len(tokens),
                 )
             )
+        return spans
 
-        BIOConverter.validate_coverage(tokens_list, tags_list, spans)
+    @staticmethod
+    def _merge_o_spans(tokens: List[str], tags: List[str]) -> List[EntitySpan]:
+        spans: List[EntitySpan] = []
+        for idx, tag in enumerate(tags):
+            if tag == "O":
+                spans.append(
+                    EntitySpan(
+                        text=tokens[idx],
+                        label="O",
+                        start=idx,
+                        end=idx + 1,
+                    )
+                )
         return spans
 
     @staticmethod
@@ -148,7 +178,7 @@ class BIOConverter:
             ValueError if coverage fails.
         """
         # Track whether each token index is already claimed by an entity span.
-        coverage = [False] * len(tokens)
+        coverage: List[str | None] = [None] * len(tokens)
         for span in spans:
             if span.start is None or span.end is None:
                 raise ValueError("Span boundaries missing for coverage validation")
@@ -157,21 +187,30 @@ class BIOConverter:
                     f"Span {span} is out of bounds for {len(tokens)} tokens"
                 )
             for idx in range(span.start, span.end):
-                if coverage[idx]:
+                if coverage[idx] is not None:
                     raise ValueError(
                         f"Token index {idx} covered by multiple spans"
                     )
-                coverage[idx] = True
+                coverage[idx] = span.label or ""
 
         for idx, tag in enumerate(tags):
-            # Entity tags must map to exactly one span while "O" tags must remain uncovered.
-            if tag.startswith(("B-", "I-")) and not coverage[idx]:
+            span_label = coverage[idx]
+            if tag == "O":
+                if span_label != "O":
+                    raise ValueError(
+                        f"Non-entity token at position {idx} missing 'O' coverage"
+                    )
+                continue
+
+            if not tag.startswith(("B-", "I-")):
+                raise ValueError(f"Unexpected tag format: {tag}")
+
+            _, _, label = tag.partition("-")
+            label = label or ""
+            if span_label != label:
                 raise ValueError(
-                    f"Entity token at position {idx} missing from spans"
-                )
-            if tag == "O" and coverage[idx]:
-                raise ValueError(
-                    f"Non-entity token at position {idx} incorrectly covered"
+                    f"Entity token at position {idx} covered by '{span_label}' "
+                    f"instead of '{label}'"
                 )
 
     @staticmethod
@@ -180,6 +219,8 @@ class BIOConverter:
         full_text = " ".join(transcript.tokens)
         return TranscriptExample(
             transcript_id=transcript.transcript_id,
+            tokens=list(transcript.tokens),
+            tags=list(transcript.tags),
             full_text=full_text,
             speaker=transcript.speaker,
             intent=transcript.intent,
