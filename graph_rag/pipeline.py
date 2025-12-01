@@ -198,48 +198,97 @@ class GraphRAG:
         lines: list[str] = [self.config.system_prompt.strip(), ""]
         lines.append("Target transmission to label:")
         lines.append(f"- full_text: {question.strip()}")
+        lines.append(
+            "- Coverage rule: assign every token from this transmission to some entity span; use label O for filler tokens instead of dropping them, and keep spans in the same order/position as the original text."
+        )
+        lines.append("")
+        lines.append("Repeat of target transmission for coverage checking:")
+        lines.append(f"- {question.strip()}")
         lines.append("")
         lines.append("Reasoning order for hints:")
         lines.append(
-            "1) Cypher graph examples (score shown per chunk). Higher score = closer structure."
-        )
-        lines.append("2) Vector snippets (use when Cypher lacks coverage).")
-        lines.append(
-            "3) ATC language priors (controllers often lead with a position/callsign; pilots often end with theirs)."
+            "1) Start with language priors: analyze the raw sentence structure, ATC phrasing, and domain rules first to infer speaker, intent, and entity spans."
         )
         lines.append(
-            "If evidence conflicts, trust the highest score; if nothing is clear, leave fields empty instead of guessing."
+            "2) Refine or correct that language-first guess using graph (Cypher) hints: rely on known callsigns, controller/pilot patterns, and typical taxiway/gate structures."
+        )
+        lines.append(
+            "3) Use vector snippets only as a tie-breaker when language + graph evidence is ambiguous, preferring the nearest neighbor to force a single best guess."
+        )
+        lines.append(
+            "Resolve conflicts in this order and never skip a prediction even when uncertain."
         )
         lines.append("")
         lines.append("Speaker cues:")
         lines.append(
-            "- CONTROLLER transmissions often begin with the aircraft callsign or a controller role (e.g., 'singapore ground')."
+            "- Speakers are always CONTROLLER or PILOT. Controllers typically lead with the position ('singapore ground', 'tower') followed by a callsign, while pilots often end with their callsign after reading back an instruction."
         )
         lines.append(
-            "- PILOT transmissions frequently end with their callsign and read back prior instructions."
+            "- When 'singapore ground'/'ground'/'tower' opens the sentence, expect an immediate greeting or callsign. When these terms appear mid-sentence, look for a preceding greeting/frequency and a trailing instruction."
         )
         lines.append("")
         lines.append("Intent cues:")
-        lines.append("- GREETING: salutations like good day/evening/morning/thanks.")
-        lines.append("- READBACK: repeats instructions and ends with callsign acknowledgment.")
-        lines.append("- TAXI: issues taxi/hold short routing; callsign usually near start.")
-        lines.append("- TRAFFIC: references other aircraft or explicitly says 'traffic'.")
-        lines.append("- FREQUENCY: mentions/contact frequency handoff (word 'decimal' may be missing).")
-        lines.append("- STANDBY: asks to wait/standby.")
-        lines.append("- OTHER: any transmission not fitting the above.")
+        lines.append("- GREETING: polite openings/closings such as 'good evening', 'good day', 'thank you'.")
+        lines.append(
+            "- READBACK: repeats taxi/frequency instructions and typically ends with the pilot's callsign."
+        )
+        lines.append(
+            "- TAXI: controller instructions about taxi routes, hold short commands, and directional movement."
+        )
+        lines.append(
+            "- TRAFFIC: explicitly mentions another aircraft or says 'traffic' when sequencing."
+        )
+        lines.append(
+            "- FREQUENCY: focuses on channel changes or monitoring instructions ('contact tower one one eight decimal two five'); 'decimal' may be omitted."
+        )
+        lines.append("- STANDBY: deferments such as 'standby', 'hold position', or requests to wait.")
+        lines.append("- OTHER: use only when none of the above categories fit.")
         lines.append("")
         lines.append("Entity label reminders:")
-        lines.append("- CALLSIGN: airline name plus 1-4 digits (spoken or numeric).")
-        lines.append("- FREQUENCY: controller frequencies such as 'one two four decimal three'.")
-        lines.append("- TAXIWAY: letters like whiskey/sierra/tango/papa/quebec with optional digits.")
-        lines.append("- ACTION: verbs like push, pushback, start, taxi, hold short, monitor, turn (all tenses).")
-        lines.append("- O: filler/non-aviation words.")
-        lines.append("- GATE: bay/stand/parking stand followed by numbers.")
-        lines.append("- CONTROLLER: positions such as singapore ground/tower/ground.")
-        lines.append("- VEHICLE: other aircraft or vehicles referenced.")
-        lines.append("- QUALIFIER: left/right/north/south/east/west/ahead/behind/lima, etc.")
-        lines.append("- GREETING: greeting phrases/thanks.")
-        lines.append("- If an entity is uncertain, output {'text': '', 'label': ''} rather than hallucinating.")
+        lines.append(
+            "- CALLSIGN: primary aircraft identifier (airline + 1-4 digits, e.g., 'qantas five two', 'cathay tree six'); controllers say it near the start, pilots near the end."
+        )
+        lines.append(
+            "- FREQUENCY: number strings like 'one two four decimal three' or the same sequence without 'decimal'; includes monitor/contact phrases."
+        )
+        lines.append(
+            "- TAXIWAY: single-letter identifiers (whiskey, sierra, tango, papa, quebec, etc.) optionally with up to two digits or repeats (e.g., 'tango tango two')."
+        )
+        lines.append(
+            "- ACTION: verbs/phrases describing motion or compliance and limited to ['taxiing','proceed','holding point','monitor','contact','hold short','vacating','continue','standby','taxi','vacated','recleared','pushback','clear'] (include tense variations like 'proceeding')."
+        )
+        lines.append(
+            "- When an action is followed by a directional modifier, split them: e.g., 'turn' -> ACTION, 'left'/'right' -> QUALIFIER. Likewise, separate ACTION words from adjacent TAXIWAY names ('holding point' as ACTION, 'tango' as TAXIWAY)."
+        )
+        lines.append(
+            "- O: filler/non-aviation tokens such as 'will', 'be', 'minutes', 'say' when they do not belong to another label."
+        )
+        lines.append(
+            "- VEHICLE: a different aircraft than the main callsign (e.g., 'behind cathay six five eight' marks cathay as VEHICLE)."
+        )
+        lines.append(
+            "- QUALIFIER: positional cues (left/right/north/south/east/west/ahead/behind) plus modifiers like 'lima' when used directionally."
+        )
+        lines.append(
+            "- GATE: parking descriptors like 'stand echo one six', 'bay one six three'; include the number even if a letter is missing."
+        )
+        lines.append(
+            "- CONTROLLER: controller roles such as 'singapore ground', 'tower', or 'ground' when referring to authority; at sentence start they often precede greetings/callsigns, mid-sentence they bracket greetings/frequencies and instructions."
+        )
+        lines.append("- GREETING: polite phrases ('good day', 'good evening', 'thank you').")
+        lines.append(
+            "- Use graph hints to confirm these spans (matching node types for callsigns, taxiways, gates, controller phrases, and known speaker-intent-entity relationships). Use vector hints as secondary confirmation or tie-breakers only."
+        )
+        lines.append(
+            "- Entity spans must tile the entire transmission without gaps; if a token lacks a richer label, explicitly tag it as O instead of skipping. Use {'text': '', 'label': ''} only when no evidence exists at all."
+        )
+        lines.append(
+            "- Preserve token order: spans must appear in the same sequence as the transcript, with commas/pauses labeled as O spans inserted at the correct positions."
+        )
+        lines.append("")
+        lines.append(
+            "Workflow: form the best guess with language structure, adjust with graph evidence, then verify/tie-break with vector hints before finalizing speaker, intent, and entities."
+        )
         lines.append("")
         lines.append("Desired JSON structure example:")
         lines.append(
@@ -262,10 +311,11 @@ class GraphRAG:
             lines.append("")
 
         lines.append(
-            "Use the above hints plus ATC structure to fill speaker, intent, and entities for the target "
+            "Use the above language-first reasoning, refined by graph hints and finally vector tie-breakers, to fill speaker, intent, and entities for the target "
             "transmission. Return exactly one JSON object with keys: full_text, speaker, intent, entities "
-            "(list of {text, label}). Use empty strings or empty list when information is unknown. Output JSON only. Answer:"
+            "(list of {text, label}). Always output speaker, intent, and an entities list (use empty strings/pairs only when information is unknown). Before answering, confirm every token—including punctuation—appears once, in order, inside an entity span (O allowed). Output JSON only. Answer:"
         )
+        lines.append(f"Coverage check reference: {question.strip()}")
         return "\n".join(lines)
 
     def query(

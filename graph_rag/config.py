@@ -19,7 +19,7 @@ class GraphRAGConfig:
     neo4j_user: str = "neo4j"
     neo4j_password: str = "Helloworld@123"
     neo4j_database: str | None = None
-    ollama_model: str = "gemma3:1b"
+    ollama_model: str = "gemma3:12b"
     ollama_base_url: str = "http://localhost:11434"
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     cypher_top_k: int = 5

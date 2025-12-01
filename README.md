@@ -26,6 +26,42 @@ External services:
    docker run --rm -p 7474:7474 -p 7687:7687 \
      -e NEO4J_AUTH=neo4j/Helloworld@123 neo4j:5.20
    ```
+   **Bare-metal / HPC setup (no Docker)**
+   ```bash
+   # 1. Download and unpack Neo4j somewhere you can write (example path shown).
+   mkdir -p ~/neo4j && cd ~/neo4j
+   wget https://dist.neo4j.org/neo4j-community-5.20.0-unix.tar.gz
+   tar -xzf neo4j-community-5.20.0-unix.tar.gz
+   mv neo4j-community-5.20.0 current
+
+   # 2. Set the password the code expects (run once before the first start).
+   cd ~/neo4j/current
+   ./bin/neo4j-admin dbms set-initial-password "Helloworld@123"
+
+   # 3. (Optional) ensure Bolt/HTTP listen on localhost in conf/neo4j.conf:
+   cat <<'EOF' >> conf/neo4j.conf
+   server.bolt.enabled=true
+   server.bolt.listen_address=0.0.0.0:7687
+   server.http.enabled=true
+   server.http.listen_address=0.0.0.0:7474
+   EOF
+
+   # 4. Start the database (leave this running while ingesting/querying).
+   ./bin/neo4j start          # or ./bin/neo4j console inside tmux/screen
+
+   # 5. Verify the Bolt port works before running phase2_ingest.
+   ./bin/cypher-shell -a bolt://localhost:7687 \
+       -u neo4j -p "Helloworld@123" "RETURN 1"
+   ```
+   Once Neo4j reports `RETURN 1`, run the ingestion script from this repo:
+   ```bash
+   cd /path/to/NER-Recursive-GraphRAG
+   python phase2_ingest.py \
+     --csv "generation_train 2.csv" \
+     --neo4j-uri bolt://localhost:7687 \
+     --neo4j-user neo4j \
+     --neo4j-password "Helloworld@123"
+   ```
 2. **Ollama** (used in later work, no code yet): plan assumes `gemma3:12b` served from `http://localhost:11434`.
 
 ---
