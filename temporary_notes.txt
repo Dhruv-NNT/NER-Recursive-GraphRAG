@@ -1,0 +1,287 @@
+singapore tower saudia two five tree rtee eight , vacated via whiskey
+singapore ground saudia two zero nine three good morning
+brussels niner one eight good afternoon , contact singapore ground , one one eight decimal six
+angkor niner recleared yankee yankee six , tunr right juliet nine six , hold short echo
+saudia nine five niner zero nine monitor singapore ground one two four decimal three
+mauritius eight nine , singapore airline seven thirty five nine on your right will be taxiing off shortly once traffic is cleared , proceed golf eiyht four holing point kilo nine
+behind qantas boeing seven eight seven from left to right taxi uniform hotel eight zero hold short of papa lion eight
+wagon air five tree zero four hold short of quebec eight , standby due traffic
+singapore ground , maldivian six zero eight five
+
+
+You are an Air Traffic Communication data structuring assistant. For each transmission, you must output JSON only with keys full_text, speaker, intent, entities (list of {text,label}). Labels: speaker in {CONTROLLER, PILOT}; intent in {GREETING, READBACK, TAXI, TRAFFIC, FREQUENCY, STANDBY, OTHER}; entity labels in [CALLSIGN, FREQUENCY, TAXIWAY, ACTION, O, GATE, CONTROLLER, VEHICLE, QUALIFIER, GREETING]. Use Cypher graph examples (highest scores first), then vector hints, then language priors. If unsure, leave text/label empty rather than guessing.
+
+Target transmission to label:
+- full_text: air india four proceed papa , utrn left whiskey five , holding point tango , runway zero two center
+
+Reasoning order for hints:
+1) Cypher graph examples (score shown per chunk). Higher score = closer structure.
+2) Vector snippets (use when Cypher lacks coverage).
+3) ATC language priors (controllers often lead with a position/callsign; pilots often end with theirs).
+If evidence conflicts, trust the highest score; if nothing is clear, leave fields empty instead of guessing.
+
+Speaker cues:
+- CONTROLLER transmissions often begin with the aircraft callsign or a controller role (e.g., 'singapore ground').
+- PILOT transmissions frequently end with their callsign and read back prior instructions.
+
+Intent cues:
+- GREETING: salutations like good day/evening/morning/thanks.
+- READBACK: repeats instructions and ends with callsign acknowledgment.
+- TAXI: issues taxi/hold short routing; callsign usually near start.
+- TRAFFIC: references other aircraft or explicitly says 'traffic'.
+- FREQUENCY: mentions/contact frequency handoff (word 'decimal' may be missing).
+- STANDBY: asks to wait/standby.
+- OTHER: any transmission not fitting the above.
+
+Entity label reminders:
+- CALLSIGN: airline name plus 1-4 digits (spoken or numeric).
+- FREQUENCY: controller frequencies such as 'one two four decimal three'.
+- TAXIWAY: letters like whiskey/sierra/tango/papa/quebec with optional digits.
+- ACTION: verbs like push, pushback, start, taxi, hold short, monitor, turn (all tenses).
+- O: filler/non-aviation words.
+- GATE: bay/stand/parking stand followed by numbers.
+- CONTROLLER: positions such as singapore ground/tower/ground.
+- VEHICLE: other aircraft or vehicles referenced.
+- QUALIFIER: left/right/north/south/east/west/ahead/behind/lima, etc.
+- GREETING: greeting phrases/thanks.
+- If an entity is uncertain, output {'text': '', 'label': ''} rather than hallucinating.
+
+Desired JSON structure example:
+{"full_text":"<transcript>", "speaker":"CONTROLLER", "intent":"TAXI", "entities":[{"text":"qantas five two","label":"CALLSIGN"}, {"text":"hold short","label":"ACTION"}]}
+Always copy the target transcript into full_text verbatim.
+
+Graph examples from Cypher matches (structural hints):
+- uid: 11773
+  full_text: silk air three befind cathay pacific airbus three five nine from right to left proceed xray two two whiskey two holding point runway zero two center
+  speaker: controller
+  intent: traffic
+  categories: RUNWAY, QUALIFIER, ACTION, VEHICLE, TAXIWAY, O, CALLSIGN
+  entities:
+    - text: runway zero two center, label: RUNWAY
+    - text: right to left, label: QUALIFIER
+    - text: holding point, label: ACTION
+    - text: cathay pacific airbus three five nine, label: VEHICLE
+    - text: whiskey two, label: TAXIWAY
+    - text: xray two two, label: TAXIWAY
+    - text: befind, label: QUALIFIER
+    - text: proceed, label: ACTION
+    - text: from, label: O
+    - text: silk air three, label: CALLSIGN
+  score: 27.5
+- uid: 32934
+  full_text: allnippon four one niner , behind the vacatig singapore airline seven three five nine on your left , proceed whiskey holding point yankee nine runway zero two center
+  speaker: controller
+  intent: traffic
+  categories: CALLSIGN, ACTION, O, VEHICLE, TAXIWAY, RUNWAY, QUALIFIER
+  entities:
+    - text: allnippon four one niner, label: CALLSIGN
+    - text: vacatig, label: ACTION
+    - text: proceed, label: ACTION
+    - text: on, label: O
+    - text: ,, label: O
+    - text: singapore airline seven three five nine, label: VEHICLE
+    - text: yankee nine, label: TAXIWAY
+    - text: runway zero two center, label: RUNWAY
+    - text: whiskey, label: TAXIWAY
+    - text: left, label: QUALIFIER
+    - text: behind, label: O
+    - text: the, label: O
+    - text: holding point, label: ACTION
+    - text: your, label: O
+  score: 27.5
+- uid: 44360
+  full_text: air india five four zero two three proceed zulu five holding point sierra , runway two zero center
+  speaker: controller
+  intent: taxi
+  categories: CALLSIGN, RUNWAY, TAXIWAY, ACTION, O
+  entities:
+    - text: air india five four zero two three, label: CALLSIGN
+    - text: runway two zero center, label: RUNWAY
+    - text: zulu five, label: TAXIWAY
+    - text: proceed, label: ACTION
+    - text: holding point, label: ACTION
+    - text: ,, label: O
+    - text: sierra, label: TAXIWAY
+  score: 27.5
+- uid: 47407
+  full_text: allnippon five four tree zero four behind the vaating qantas airbus a three eighty from right to left proceed whiskey three holding point india runway zero two right
+  speaker: controller
+  intent: traffic
+  categories: TAXIWAY, RUNWAY, ACTION, O, CALLSIGN, QUALIFIER, VEHICLE
+  entities:
+    - text: whiskey three, label: TAXIWAY
+    - text: runway zero two right, label: RUNWAY
+    - text: vaating, label: ACTION
+    - text: the, label: O
+    - text: holding point, label: ACTION
+    - text: from, label: O
+    - text: india, label: TAXIWAY
+    - text: behind, label: O
+    - text: allnippon five four tree zero four, label: CALLSIGN
+    - text: right to left, label: QUALIFIER
+    - text: proceed, label: ACTION
+    - text: qantas airbus a three eighty, label: VEHICLE
+  score: 27.5
+- uid: 47912
+  full_text: air india eight zero one four taxi vai tango five tango , papa holding poitn , runway zero two left
+  speaker: controller
+  intent: taxi
+  categories: RUNWAY, ACTION, O, CALLSIGN, TAXIWAY
+  entities:
+    - text: runway zero two left, label: RUNWAY
+    - text: taxi, label: ACTION
+    - text: holding poitn, label: ACTION
+    - text: vai, label: O
+    - text: air india eight zero one four, label: CALLSIGN
+    - text: papa, label: TAXIWAY
+    - text: tango, label: O
+    - text: ,, label: O
+    - text: tango five, label: TAXIWAY
+  score: 27.5
+
+Transcript snippets (vector search hints):
+- uid: 10304
+  full_text: flynas four four eight niner continue tango three tango seven one holding point yankee
+  speaker: controller
+  intent: taxi
+  categories: CALLSIGN, ACTION, TAXIWAY
+  entities:
+    - text: flynas four four eight niner, label: CALLSIGN
+    - text: continue, label: ACTION
+    - text: tango seven one, label: TAXIWAY
+    - text: yankee, label: TAXIWAY
+    - text: holding point, label: ACTION
+    - text: tango three, label: TAXIWAY
+  score: 0.4394184741433765
+- uid: 10173
+  full_text: thai asia three seven wtaxi foxtrot four juliet seven holding point runway two zero right
+  speaker: controller
+  intent: taxi
+  categories: CALLSIGN, ACTION, RUNWAY, TAXIWAY
+  entities:
+    - text: thai asia three seven, label: CALLSIGN
+    - text: wtaxi, label: ACTION
+    - text: runway two zero right, label: RUNWAY
+    - text: juliet seven, label: TAXIWAY
+    - text: foxtrot four, label: TAXIWAY
+    - text: holding point, label: ACTION
+  score: 0.4162789058241933
+- uid: 10203
+  full_text: affirmatiev , whiskey xray four ruiway two zero center airindi six three eight tree
+  speaker: pilot
+  intent: readback
+  categories: RUNWAY, CALLSIGN, O, TAXIWAY
+  entities:
+    - text: ruiway two zero center, label: RUNWAY
+    - text: airindi six three eight tree, label: CALLSIGN
+    - text: ,, label: O
+    - text: whiskey, label: TAXIWAY
+    - text: affirmatiev, label: O
+    - text: xray four, label: TAXIWAY
+  score: 0.403698655608194
+- uid: 10134
+  full_text: hong kong two eight recleared arlpha five romeo one five holding point , runway zero two center
+  speaker: controller
+  intent: taxi
+  categories: CALLSIGN, ACTION, TAXIWAY, RUNWAY, O
+  entities:
+    - text: hong kong two eight, label: CALLSIGN
+    - text: holding point, label: ACTION
+    - text: recleared, label: ACTION
+    - text: romeo one five, label: TAXIWAY
+    - text: arlpha five, label: TAXIWAY
+    - text: runway zero two center, label: RUNWAY
+    - text: ,, label: O
+  score: 0.3977482864710768
+- uid: 1041
+  full_text: iceland eight zero four five behind the vaceting jetstar arbus three two zreo from left to right , procede whiskey rseven four tango jight eight holdign point runway zero two center
+  speaker: controller
+  intent: traffic
+  categories: ACTION, QUALIFIER, VEHICLE, O, RUNWAY, TAXIWAY, CALLSIGN
+  entities:
+    - text: procede, label: ACTION
+    - text: left to right, label: QUALIFIER
+    - text: jetstar arbus three two zreo, label: VEHICLE
+    - text: from, label: O
+    - text: runway zero two center, label: RUNWAY
+    - text: tango jight eight, label: TAXIWAY
+    - text: ,, label: O
+    - text: behind, label: O
+    - text: the, label: O
+    - text: holdign point, label: ACTION
+    - text: whiskey rseven four, label: TAXIWAY
+    - text: vaceting, label: ACTION
+    - text: iceland eight zero four five, label: CALLSIGN
+  score: 0.3954638680909324
+- uid: 104
+  full_text: air fly nine four eight seven nine taxi foxtrot hoiding point india three , runwya zero two right
+  speaker: controller
+  intent: taxi
+  categories: TAXIWAY, ACTION, RUNWAY, CALLSIGN, O
+  entities:
+    - text: india three, label: TAXIWAY
+    - text: taxi, label: ACTION
+    - text: foxtrot, label: TAXIWAY
+    - text: runwya zero two right, label: RUNWAY
+    - text: air fly nine four eight seven nine, label: CALLSIGN
+    - text: hoiding point, label: ACTION
+    - text: ,, label: O
+  score: 0.39381172067330084
+- uid: 10235
+  full_text: hotel seven for apron lima two two air spring three nine zero nine nine
+  speaker: pilot
+  intent: readback
+  categories: CALLSIGN, GATE, O, TAXIWAY
+  entities:
+    - text: air spring three nine zero nine nine, label: CALLSIGN
+    - text: apron lima two two, label: GATE
+    - text: for, label: O
+    - text: hotel seven, label: TAXIWAY
+  score: 0.3933730905406819
+- uid: 10267
+  full_text: all nippon nine eight seven eight seven taxi to quebec niner nine golf oen three holding point , runway two zero left
+  speaker: controller
+  intent: taxi
+  categories: ACTION, TAXIWAY, O, RUNWAY, CALLSIGN
+  entities:
+    - text: taxi, label: ACTION
+    - text: quebec niner nine, label: TAXIWAY
+    - text: ,, label: O
+    - text: runway two zero left, label: RUNWAY
+    - text: holding point, label: ACTION
+    - text: all nippon nine eight seven eight seven, label: CALLSIGN
+    - text: to, label: O
+    - text: golf oen three, label: TAXIWAY
+  score: 0.3837193049811302
+- uid: 10254
+  full_text: to lima ffive two holding point hotel zero , frontier tree six four
+  speaker: pilot
+  intent: readback
+  categories: TAXIWAY, O, CALLSIGN, ACTION
+  entities:
+    - text: lima ffive two, label: TAXIWAY
+    - text: ,, label: O
+    - text: frontier tree six four, label: CALLSIGN
+    - text: hotel zero, label: TAXIWAY
+    - text: holding point, label: ACTION
+    - text: to, label: O
+  score: 0.38095938280406005
+- uid: 102
+  full_text: holding point bravo six seven , one two four decimal three indonesian one ninr five
+  speaker: pilot
+  intent: readback
+  categories: TAXIWAY, FREQUENCY, O, ACTION, CALLSIGN
+  entities:
+    - text: bravo six seven, label: TAXIWAY
+    - text: one two four decimal three, label: FREQUENCY
+    - text: ,, label: O
+    - text: holding point, label: ACTION
+    - text: indonesian one ninr five, label: CALLSIGN
+  score: 0.38089154506380485
+
+Use the above hints plus ATC structure to fill speaker, intent, and entities for the target transmission. Return exactly one JSON object with keys: full_text, speaker, intent, entities (list of {text, label}). Use empty strings or empty list when information is unknown. Output JSON only. Answer:
+
+=== Answer ===
+```json
+{"full_text": "air india four proceed papa , utrn left whiskey five , holding point tango , runway zero two center", "speaker": "controller", "intent": "TAXI", "entities":[{"text": "air india four", "label": "CALLSIGN"}, {"text": "proceed", "label": "ACTION"}, {"text": "utrn left", "label": "QUALIFIER"}, {"text": "whiskey five", "label": "TAXIWAY"}, {"text": "holding point tango", "label": "ACTION"}, {"text": "runway zero two center", "label": "RUNWAY"}]}
+```
